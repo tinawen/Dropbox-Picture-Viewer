@@ -1,0 +1,20 @@
+{
+  "name": "Dropbox Image Viewer",
+  "version": "1.0.1",
+  "description": "View all your Dropbox pictures.",
+  "icons": {"16": "16.png", "48": "48.png", "128": "128.png"},		
+  "permissions": [
+    "tabs",
+	"https://api-content.dropbox.com/1/files/*",
+	"https://api.dropbox.com/1/oauth/request_token",
+	"https://www.dropbox.com/1/oauth/authorize", 
+	"https://api.dropbox.com/1/oauth/access_token"
+  ],
+  "background_page": "background.html",
+    "options_page": "options.html",
+    "browser_action": {
+    "default_icon": "unauthorized.png",
+    "default_title": "Preview your Dropbox pictures",
+    "popup": "popup.html"
+  }
+}

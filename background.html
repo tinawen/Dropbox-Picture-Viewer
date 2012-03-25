@@ -1,0 +1,75 @@
+<script src="chrome_ex_oauthsimple.js"></script>
+<script src="chrome_ex_oauth.js"></script>
+<script src="jquery.js"></script>
+<script>
+
+const OAUTH = ChromeExOAuth.initBackgroundPage({
+    request_url: 'https://api.dropbox.com/1/oauth/request_token',
+    authorize_url: 'https://www.dropbox.com/1/oauth/authorize',
+    access_url: 'https://api.dropbox.com/1/oauth/access_token',
+    consumer_key: '6bsjpdzzpqt73va',
+    consumer_secret: '4rq3meqkd7rjwsh',
+});
+
+function parse(type) {
+    return typeof type == 'string' ? jQuery.parseJSON(type) : type;
+}
+
+function load() {
+	BROWSER_ACTION.setBadgeBackgroundColor({color: [139, 139, 139, 255]});
+}
+
+function showPhoto(photoContent) {
+  var img = document.createElement("image");
+	img.src = photoContent;
+	document.body.appendChild(img);
+}
+
+function loadAlbum(func) {
+	var params = {method: 'GET',
+                 headers: {'Content-Type': 'application/json'},
+              parameters:{'query': 'jpg'}};
+OAUTH.sendSignedRequest(
+		'https://api.dropbox.com/1/search/dropbox/',
+		function(response) {
+			var thumbnails = jQuery.parseJSON(response);
+			if (thumbnails !== null)
+			{
+				var pathArray = new Array();
+				for (var i = 0; i < thumbnails.length; i++)
+				{
+					var thumbnail = thumbnails[i];
+					var thumbnailPath = thumbnail.path;
+					pathArray.push(thumbnailPath);
+				}
+				localStorage.images = pathArray;
+			}
+			//data is loaded
+			if (func)
+				func.call();
+		}, params
+    );
+}
+
+const BROWSER_ACTION = chrome.browserAction;
+
+function authorize() {
+	OAUTH.authorize(function() {
+		BROWSER_ACTION.setIcon({path: 'authorized.png'});
+		window.setTimeout('loadAlbum()', 3000);
+    });
+}
+
+if (!parse(localStorage.initialized)) {
+    localStorage.maxImages = 100;
+    localStorage.initialized = true;
+}
+
+load();
+
+authorize();
+
+
+
+</script>
+

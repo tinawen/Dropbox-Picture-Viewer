@@ -1,0 +1,304 @@
+<style>
+body {
+	font-family: "Open Sans", "lucida grande", lucida, sans-serif;
+	width:335;
+	min-width:335;
+	font-family:
+}
+
+.images {
+  width:315px;
+  height:230px;
+	margin:10px;
+	clear:both;
+	overflow:auto;
+	border:2px solid black;
+	display:block;
+}
+
+.images.noImages {
+	display:none;
+}
+
+.divimage {
+	position:relative;
+	width:74px;
+	height:74px;
+	display:inline;
+	float:left;
+}
+
+.fullSizeImage
+{
+	opacity:0;
+}
+
+.fullSizeImage, .image
+{
+	position:absolute;
+	top:0px;
+	left:0px;
+	float:left;
+	margin:5px;
+	border:2px solid black;
+	width:64px;
+	height:64px;
+}
+
+.loading-wheel {
+	width:295px;
+	height:210px;
+	display:block;
+}
+
+.loading-wheel.doneloading {
+	display: none;
+}
+
+#signin {
+	height:49px;
+	clear:both;
+	margin:0px;
+}
+
+#logo {
+	float:left;
+}
+
+#authorization, #refresh {
+	display:block;
+	float:right;
+	margin-top:5px;
+	text-decoration:underline;
+	color:#003ea8;
+	height:39px;
+	width:39px;
+	cursor: pointer;
+}
+
+#authorization {
+	margin-right:10px;
+}
+
+#refresh {
+	margin-right:15px;
+}
+
+#refresh.unavailable {
+	display:none;
+}
+
+</style>
+<script type="text/javascript" src="jquery.js"></script>
+<script type="text/javascript">
+const BACKGROUND = chrome.extension.getBackgroundPage();
+const OAUTH = BACKGROUND.OAUTH;
+images = localStorage.images !== undefined ? localStorage.images.split(',') : undefined;
+const NUMIMGLOAD = 16;
+var timer;
+var imageIndicesPending = [];
+var fullImageLoaded = [];
+var numImgLoaded = 0;
+const ISPOPUP = true;
+
+function fileUrlForPath(path, size) {
+    return OAUTH.signedRequest('https://api-content.dropbox.com/1/thumbnails/dropbox'+path,
+                                  {method: 'GET',
+                                  headers: {'Content-Type': 'application/json'},
+                                  parameters: {'format': 'JPEG',
+                                  'size' : size}
+                                  });
+}
+
+function loadImagesFromIndex(index) {
+	if ($('.loading-wheel').hasClass('doneloading'))
+	{
+		var startIndex = index;
+		var endIndex = images === undefined ? 0 : Math.min(index+NUMIMGLOAD, images.length);
+		var validIndices = new Array();
+		//remove pending requests
+		imageIndicesPending = $.map(imageIndicesPending, function(n) {
+			if (n < startIndex || n >= endIndex)
+			{
+				var imageElement = $('.image')[n];
+				$(imageElement).removeAttr('src');
+				return null;
+			}
+			else
+				return n;
+		});
+		
+		for (var i = startIndex; i < endIndex; i++)
+		{
+			if (jQuery.inArray(i, imageIndicesPending) !== -1)
+			{
+				continue;
+			}
+			var imageElement = $('.image')[i];
+			var path = images[i];
+			
+			if ($(imageElement).attr('src') === undefined || $(imageElement).attr('src').search(path) === -1)
+			{
+				var url = fileUrlForPath(path, 'medium');
+				$(imageElement).attr('src', url).addClass('image').load(
+					(function(i) {
+						return function() {
+							imageLoaded(i);
+							return true;
+						};
+					}) (i)
+				);
+				
+                $(imageElement).attr('path', path);
+	
+				$(imageElement).mouseenter(function(e) {
+					var path = $(e.srcElement).attr('path');
+					var fileUrl = undefined;
+                    //small size
+                    if (localStorage.imageSize === 'Small (128x128)')
+                        fileUrl = fileUrlForPath(path, 'm');
+                    else if (localStorage.imageSize === 'Medium (640x480)')
+                        fileUrl = fileUrlForPath(path, 'l');
+                    else if (localStorage.imageSize === 'Large (1024x768)')
+                        fileUrl = fileUrlForPath(path, 'xl');
+                    else
+                        fileUrl = OAUTH.signedRequest('https://api-content.dropbox.com/1/files/dropbox'+path,
+                                                      {method: 'GET',
+                                                      headers: {'Content-Type': 'application/json'},
+                                                      });	 	 
+					
+					var fullSizeImage = $('<img/>').addClass('fullSizeImage').attr('src', fileUrl).get(0);
+					fullSizeImage.addEventListener('dragstart',function(evt){
+									 var dragIcon = document.createElement('img');
+						evt.dataTransfer.setDragImage(e.srcElement, 0, 0);
+					}, false);
+					var downloadUrl = 'application/octet-stream:'+path+':'+fileUrl;
+					$(fullSizeImage).attr('data-downloadurl', downloadUrl);
+					$(e.srcElement).parent().append(fullSizeImage);
+					fullImageLoaded.push($(e.srcElement).parent());
+				});
+							
+				imageIndicesPending.push(i);
+			}
+		}
+	}
+}
+
+function imageLoaded(imageIndex) {
+	imageIndicesPending = jQuery.grep(imageIndicesPending, function(value) {
+        return value != imageIndex;
+    });
+}
+
+function loadImageFrames() {
+	if (images === undefined)
+	{
+		$('.loading-wheel').removeClass('doneloading');
+	}
+	else
+	{
+		$('.loading-wheel').addClass('doneloading');
+	}
+	for (imageIndex in images)
+	{
+		var imageElement = $('<img/>').addClass('image').get(0);
+		var	imageDiv = $('<div/>').addClass('divimage').append(imageElement).get(0);
+		$(imageDiv).attr('index', imageIndex);
+		$('.images').append(imageDiv);
+	}
+};
+
+function loadAlbum () {
+	$('.images').empty();
+	$('.images').append("<img class='loading-wheel' src='loader.gif' />");
+	$('.loading-wheel').removeClass('doneloading');
+	BACKGROUND.loadAlbum(function() {
+		images = localStorage.images !== undefined ? localStorage.images.split(',') : undefined;
+		loadImageFrames();
+		loadImagesFromIndex(0);
+	});
+};
+
+$(document).ready(function() {
+	if (OAUTH.hasToken()) {
+		$('#refresh').removeClass('unavailable');
+		$('#authorization').attr('alt', 'Sign out');
+		$('#authorization').attr('src', 'signout.png');
+		
+		$('#authorization').click(function() {
+			BACKGROUND.clearInterval(BACKGROUND.id);
+			delete localStorage.images;
+			delete localStorage.imageSize;
+			OAUTH.clearTokens();
+			BACKGROUND.BROWSER_ACTION.setIcon({path: 'unauthorized.png'});
+			BACKGROUND.load();
+			close();
+		});
+	} else {
+		$('#refresh').addClass('unavailable');
+		$('#authorization').attr('alt', 'Sign in');
+		$('#authorization').attr('src', 'signin.png')
+
+		$('#authorization').click(function() { 
+			BACKGROUND.authorize(); 
+		});
+		$('.images').addClass('noImages');
+	}
+	$('#refresh').click(function() {
+		loadAlbum();
+	});
+
+  	$.fn.loadImageViews = function() {
+		var row = Math.floor($('.images').scrollTop() / 74);
+		loadImagesFromIndex(row * 4);
+		
+		//delete full size pictures
+		for (fullSizeImageDivIndex in fullImageLoaded)
+		{
+			var fullSizeImageDiv = fullImageLoaded[fullSizeImageDivIndex];
+			var index = $(fullSizeImageDiv).attr('index');
+			var startRow = Math.floor($('.images').scrollTop() / 74);
+			if (index < startRow * 4 || index >= startRow * 4 + NUMIMGLOAD)
+			{
+				//out of range, delete!
+				var kids = $(fullSizeImageDiv).children();
+				for (kidIndex in kids)
+				{
+					var kid = kids[kidIndex];
+					if ($(kid).hasClass('fullSizeImage'))
+					{
+						$(kid).remove();
+						break;
+					}
+				}
+			}	
+		}
+	};
+
+	var timer;
+	$('.images').scroll(function() {
+		window.clearTimeout(timer);
+		timer = window.setTimeout('$(this).loadImageViews()', 1000);
+	});
+});
+
+document.addEventListener('DOMContentLoaded', images === undefined ? 
+						  function() {
+							  if (OAUTH.hasToken())
+								  loadAlbum();} : function() {
+		loadImageFrames();
+	window.setTimeout('loadImagesFromIndex(0)', 500);
+});
+						
+</script>
+<body>
+<div class="images">
+	<img class="loading-wheel" src="loader.gif" />
+</div>
+<div id="signin">
+	<img id="logo" src="logo.png" alt="Dropbox">
+	<img id="refresh" src="refresh.png" alt="Refresh Album">
+	<img id="authorization" src="signout.png">
+</div>
+</body>
+

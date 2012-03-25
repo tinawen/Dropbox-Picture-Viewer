@@ -1,0 +1,60 @@
+<title>Dropbox Photo Browser</title>
+<style>
+  body {
+    margin: 10px;
+    font: 84% Arial, sans-serif
+  }
+
+  h1 { font-size: 156% }
+
+  h1 img {
+    margin: 1px 5px 0 1px;
+    vertical-align: middle
+  }
+
+  h2 {
+    border-top: 1px solid #9cc2ef;
+    background-color: #ebeff9;
+    padding: 3px 5px;
+    font-size: 100%
+  }
+
+  dl { padding: 0 5px }
+
+  dd {
+    font-weight: bold;
+    margin-top: 13px;
+    margin-bottom: 13px
+  }
+  
+  #popup {
+  margin:10px;
+}
+
+</style>
+<script>
+  onload = function() {
+    options.imageSize.onchange = function() {
+      localStorage.imageSize = this.value;
+    };
+  };
+</script>
+<h1>
+  <img src="dropbox.png" alt="Dropbox">
+  Dropbox Photo Browser
+</h1>
+<h2>Options</h2>
+<form id="options">
+  <dl>
+	<dt>Choose the size of the images dragged out of Dropbox Photo Browser</dt>
+    <dd>
+	  Image Size
+      <select id="popup" name="imageSize">
+		<option>Original</option>
+        <option>Large (1024x768)</option>		
+		<option>Medium (640x480)</option>
+        <option>Small (128x128)</option>
+      </select>
+    </dd>
+  </dl>
+</form>
